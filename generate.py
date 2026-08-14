@@ -26,11 +26,38 @@ def build_crs_dict():
     return crs_dict
 
 
+def to_columnar(crs_dict):
+    """Reshape the CRS dict into columns.
+
+    Row i is (auth_dict[auth_index[i]], code[i], name[i], proj4string[i]).
+    The authority column is dictionary encoded: it repeats across every row,
+    so we store each distinct value once and keep a column of indices into it.
+    """
+    auth_dict = []
+    auth_ids = {}
+    auth_index = []
+
+    for crs in crs_dict.values():
+        if crs["auth_name"] not in auth_ids:
+            auth_ids[crs["auth_name"]] = len(auth_dict)
+            auth_dict.append(crs["auth_name"])
+        auth_index.append(auth_ids[crs["auth_name"]])
+
+    return {
+        "cols": {
+            "auth": {"dict": auth_dict, "index": auth_index},
+            "code": [crs["code"] for crs in crs_dict.values()],
+            "name": [crs["name"] for crs in crs_dict.values()],
+            "proj4string": [crs["proj4string"] for crs in crs_dict.values()],
+        }
+    }
+
+
 def main():
     crs_dict = build_crs_dict()
 
     with open("proj-codes.json", "w") as f:
-        json.dump(crs_dict, f)
+        json.dump(to_columnar(crs_dict), f, separators=(",", ":"))
 
     with open("proj-codes.csv", "w", newline="") as f:
         writer = csv.writer(f)
